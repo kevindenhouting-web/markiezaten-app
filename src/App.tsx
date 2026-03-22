@@ -835,9 +835,9 @@ function AppContent() {
                       {isWin ? 'W' : isLoss ? 'V' : 'G'}
                     </div>
                     <div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <p className="font-bold text-slate-900">vs {match.opponent}</p>
-                        <span className="bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                        <span className="bg-slate-900 text-white text-[10px] font-black px-2 py-0.5 rounded-full whitespace-nowrap">
                           {match.score?.home} - {match.score?.away}
                         </span>
                       </div>
@@ -1109,10 +1109,10 @@ function AppContent() {
                     <Calendar size={20} />
                   </div>
                   <div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="font-bold text-slate-900">vs {match.opponent}</p>
                       {match.score && (
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm ${
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap ${
                           isWin ? 'bg-emerald-600 text-white' :
                           isLoss ? 'bg-rose-600 text-white' :
                           'bg-slate-900 text-white'
@@ -1120,12 +1120,14 @@ function AppContent() {
                           {match.score.home} - {match.score.away}
                         </span>
                       )}
-                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${match.isHome ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
-                        {match.isHome ? 'Thuis' : 'Uit'}
-                      </span>
-                      <span className={`text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${Object.values(match.attendance).filter(Boolean).length >= 11 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                        {Object.values(match.attendance).filter(Boolean).length} Spelers
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter whitespace-nowrap ${match.isHome ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
+                          {match.isHome ? 'Thuis' : 'Uit'}
+                        </span>
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter whitespace-nowrap ${Object.values(match.attendance).filter(Boolean).length >= 11 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                          {Object.values(match.attendance).filter(Boolean).length} Spelers
+                        </span>
+                      </div>
                     </div>
                     <p className="text-sm text-slate-500">
                       {new Date(match.date).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })} om {new Date(match.date).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
