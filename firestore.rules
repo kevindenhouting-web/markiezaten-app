@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: players
+    // Document ID: playerId (UUID)
+    // Fields:
+    //   - name: string (required) - Player name
+    //
+    // Collection: matches
+    // Document ID: matchId (UUID)
+    // Fields:
+    //   - date: string (required) - ISO date string
+    //   - opponent: string (required) - Opponent name
+    //   - attendance: map (optional) - playerId -> bool
+    //   - formation: string (required) - '4-4-2' or '4-3-3'
+    //   - lineup: map (optional) - positionKey -> playerId
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             request.auth.token.email == "kevindenhouting@gmail.com" &&
+             request.auth.token.email_verified == true;
+    }
+
+    function isValidPlayer(data) {
+      return data.keys().hasAll(['name']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+    }
+
+    function isValidMatch(data) {
+      return data.keys().hasAll(['date', 'opponent', 'formation', 'isHome', 'gatheringTime']) &&
+             data.date is string &&
+             data.opponent is string && data.opponent.size() > 0 && data.opponent.size() < 100 &&
+             data.isHome is bool &&
+             data.gatheringTime is string &&
+             data.formation in ['4-4-2', '4-3-3'] &&
+             (data.get('attendance', {}) is map) &&
+             (data.get('lineup', {}) is map);
+    }
+
+    // Rules
+    match /players/{playerId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isValidPlayer(request.resource.data);
+      allow update: if isAdmin() && isValidPlayer(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /matches/{matchId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isValidMatch(request.resource.data);
+      allow update: if isAdmin() && isValidMatch(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "Player": {
+      "title": "Player",
+      "description": "A player in the team",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the player"
+        }
+      },
+      "required": ["name"]
+    },
+    "Match": {
+      "title": "Match",
+      "description": "A football match",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date and time of the match"
+        },
+        "opponent": {
+          "type": "string",
+          "description": "The name of the opponent"
+        },
+        "isHome": {
+          "type": "boolean",
+          "description": "Whether it is a home match"
+        },
+        "gatheringTime": {
+          "type": "string",
+          "description": "The time the team gathers"
+        },
+        "attendance": {
+          "type": "object",
+          "description": "Map of playerId to boolean presence"
+        },
+        "formation": {
+          "type": "string",
+          "enum": ["4-4-2", "4-3-3"],
+          "description": "The tactical formation"
+        },
+        "lineup": {
+          "type": "object",
+          "description": "Map of positionKey to playerId"
+        },
+        "score": {
+          "type": "object",
+          "properties": {
+            "home": { "type": "integer" },
+            "away": { "type": "integer" }
+          },
+          "description": "The final score of the match"
+        },
+        "scorers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Array of player IDs who scored goals"
+        }
+      },
+      "required": ["date", "opponent", "formation"]
+    }
+  },
+  "firestore": {
+    "/players/{playerId}": {
+      "schema": "Player",
+      "description": "Collection of players"
+    },
+    "/matches/{matchId}": {
+      "schema": "Match",
+      "description": "Collection of matches"
+    }
+  }
+}
