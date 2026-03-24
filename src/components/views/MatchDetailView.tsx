@@ -276,7 +276,9 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
             <div className="p-6 space-y-6">
               <div className="flex items-center justify-center space-x-6">
                 <div className="text-center">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Markiezaten</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                    {selectedMatch.isHome ? 'Markiezaten' : selectedMatch.opponent}
+                  </p>
                   <div className="flex items-center space-x-3">
                     <button 
                       onClick={() => updateMatch({ ...selectedMatch, score: { home: Math.max(0, (selectedMatch.score?.home || 0) - 1), away: selectedMatch.score?.away || 0 } })}
@@ -295,7 +297,9 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
                 </div>
                 <div className="text-2xl font-black text-slate-300 mt-6">-</div>
                 <div className="text-center">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">{selectedMatch.opponent}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                    {selectedMatch.isHome ? selectedMatch.opponent : 'Markiezaten'}
+                  </p>
                   <div className="flex items-center space-x-3">
                     <button 
                       onClick={() => updateMatch({ ...selectedMatch, score: { home: selectedMatch.score?.home || 0, away: Math.max(0, (selectedMatch.score?.away || 0) - 1) } })}
