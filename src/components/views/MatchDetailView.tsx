@@ -16,6 +16,7 @@ import { toPng } from 'html-to-image';
 import { Player, Match, Formation } from '../../types';
 import { FORMATIONS } from '../../constants';
 import { DraggablePlayer, PositionSelector } from '../common/LineupComponents';
+import { TeamLogo } from '../common/TeamLogo';
 
 interface MatchDetailViewProps {
   match: Match;
@@ -111,12 +112,38 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
     if (!matchInfoRef.current) return;
     setIsExporting(true);
     try {
+      // Temporarily make it visible for capture but still hidden from user view via opacity/pointer-events
+      const el = matchInfoRef.current;
+      el.style.position = 'fixed';
+      el.style.left = '0';
+      el.style.top = '0';
+      el.style.zIndex = '-100';
+      el.style.opacity = '1';
+      el.style.visibility = 'visible';
+
       await new Promise(resolve => setTimeout(resolve, 500));
-      const dataUrl = await toPng(matchInfoRef.current, {
+      const dataUrl = await toPng(el, {
         cacheBust: true,
         backgroundColor: '#001F2D',
-        style: { borderRadius: '0' }
+        width: 600,
+        height: 600,
+        style: { 
+          borderRadius: '0',
+          margin: '0',
+          padding: '48px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }
       });
+
+      // Reset styles
+      el.style.position = 'fixed';
+      el.style.left = '-9999px';
+      el.style.opacity = '0';
+      el.style.visibility = 'hidden';
+
       const link = document.createElement('a');
       link.download = `wedstrijd-info-vs-${selectedMatch.opponent}.png`;
       link.href = dataUrl;
@@ -136,6 +163,45 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Hidden Share Card for Export */}
+      <div 
+        ref={matchInfoRef} 
+        style={{ position: 'fixed', left: '-9999px', opacity: 0, visibility: 'hidden' }}
+        className="w-[600px] bg-markiezaten-dark p-12 text-white flex flex-col items-center text-center space-y-8"
+      >
+        <div className="w-24 h-24 bg-white rounded-3xl p-2 shadow-xl flex items-center justify-center">
+          <TeamLogo />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none">
+            {selectedMatch.isHome ? 'Markiezaten' : selectedMatch.opponent}
+            <span className="block text-markiezaten-cyan text-2xl my-2">VS</span>
+            {selectedMatch.isHome ? selectedMatch.opponent : 'Markiezaten'}
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 gap-y-8 gap-x-12 w-full border-t border-white/10 pt-8">
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Datum</p>
+            <p className="text-xl font-black">{new Date(selectedMatch.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Locatie</p>
+            <p className="text-xl font-black">{selectedMatch.isHome ? 'Thuis' : 'Uit'}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aanvang</p>
+            <p className="text-xl font-black">{new Date(selectedMatch.date).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Verzamelen</p>
+            <p className="text-xl font-black">{selectedMatch.gatheringTime || '-'}</p>
+          </div>
+        </div>
+        <div className="pt-4 opacity-30">
+          <p className="text-[8px] font-bold uppercase tracking-[0.3em]">De Markiezaten • Match Info</p>
+        </div>
+      </div>
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center space-x-4">
           <button 

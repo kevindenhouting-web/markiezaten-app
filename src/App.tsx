@@ -55,12 +55,12 @@ function AppContent() {
   const SEASONS = ['24/25', '25/26', '26/27', '27/28'];
   
   const players = useMemo(() => 
-    allPlayers.filter(p => p.season === currentSeason || !p.season), 
+    allPlayers.filter(p => p.season === currentSeason || (!p.season && currentSeason === '25/26')), 
     [allPlayers, currentSeason]
   );
 
   const matches = useMemo(() => 
-    allMatches.filter(m => m.season === currentSeason || !m.season), 
+    allMatches.filter(m => m.season === currentSeason || (!m.season && currentSeason === '25/26')), 
     [allMatches, currentSeason]
   );
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -230,7 +230,11 @@ function AppContent() {
   const updatePlayer = async (id: string, name: string) => {
     if (!name.trim()) return;
     try {
-      await updateDoc(doc(db, 'players', id), { name });
+      const player = allPlayers.find(p => p.id === id);
+      await updateDoc(doc(db, 'players', id), { 
+        name,
+        season: player?.season || '25/26'
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `players/${id}`);
     }
@@ -295,6 +299,7 @@ function AppContent() {
   const updateMatch = async (updatedMatch: Match) => {
     try {
       const { id, ...data } = updatedMatch;
+      if (!data.season) data.season = '25/26';
       await updateDoc(doc(db, 'matches', id), data);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `matches/${updatedMatch.id}`);

@@ -33,17 +33,19 @@ service cloud.firestore {
     }
 
     function isValidPlayer(data) {
-      return data.keys().hasAll(['name']) &&
-             data.name is string && data.name.size() > 0 && data.name.size() < 100;
+      return data.keys().hasAll(['name', 'season']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.season in ['24/25', '25/26', '26/27', '27/28'];
     }
 
     function isValidMatch(data) {
-      return data.keys().hasAll(['date', 'opponent', 'formation', 'isHome', 'gatheringTime']) &&
+      return data.keys().hasAll(['date', 'opponent', 'formation', 'isHome', 'gatheringTime', 'season']) &&
              data.date is string &&
              data.opponent is string && data.opponent.size() > 0 && data.opponent.size() < 100 &&
              data.isHome is bool &&
              data.gatheringTime is string &&
              data.formation in ['4-4-2', '4-3-3'] &&
+             data.season in ['24/25', '25/26', '26/27', '27/28'] &&
              (data.get('attendance', {}) is map) &&
              (data.get('lineup', {}) is map);
     }
