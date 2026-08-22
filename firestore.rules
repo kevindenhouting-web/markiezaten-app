@@ -32,10 +32,15 @@ service cloud.firestore {
              request.auth.token.email_verified == true;
     }
 
+    function isValidSeason(data) {
+      return data.keys().hasAll(['name']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 20;
+    }
+
     function isValidPlayer(data) {
       return data.keys().hasAll(['name', 'season']) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             data.season in ['24/25', '25/26', '26/27', '27/28'];
+             data.season is string && data.season.size() > 0 && data.season.size() < 20;
     }
 
     function isValidMatch(data) {
@@ -45,12 +50,19 @@ service cloud.firestore {
              data.isHome is bool &&
              data.gatheringTime is string &&
              data.formation in ['4-4-2', '4-3-3'] &&
-             data.season in ['24/25', '25/26', '26/27', '27/28'] &&
+             data.season is string && data.season.size() > 0 && data.season.size() < 20 &&
              (data.get('attendance', {}) is map) &&
              (data.get('lineup', {}) is map);
     }
 
     // Rules
+    match /seasons/{seasonId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isValidSeason(request.resource.data);
+      allow update: if isAdmin() && isValidSeason(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
     match /players/{playerId} {
       allow read: if isAdmin();
       allow create: if isAdmin() && isValidPlayer(request.resource.data);

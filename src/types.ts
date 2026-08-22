@@ -25,6 +25,14 @@ export interface Match {
   scorers?: string[]; // Array of player IDs, one entry per goal
 }
 
+export interface NewMatchInput {
+  opponent: string;
+  date: string;
+  isHome: boolean;
+  gatheringTime: string;
+  formation?: Formation;
+}
+
 export type View = 'dashboard' | 'players' | 'matches' | 'match-detail' | 'reports';
 
 export enum OperationType {

@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { RefreshCw, Users, Calendar, BarChart3, Trophy, ChevronRight } from 'lucide-react';
 import { Player, Match, View } from '../../types';
+import { formatMatchTime } from '../../utils/matchParser';
 
 interface DashboardViewProps {
   players: Player[];
@@ -157,7 +158,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </span>
                     </div>
                     <p className="text-sm text-slate-500">
-                      {new Date(match.date).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+                      {formatMatchTime(match.date)}
                       {match.gatheringTime && ` (Verzamelen: ${match.gatheringTime})`}
                     </p>
                   </div>

@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { Plus, Calendar, Trash2, XCircle } from 'lucide-react';
-import { Player, Match, View } from '../../types';
+import { Plus, Calendar, Trash2, Layers, Sparkles } from 'lucide-react';
+import { Player, Match, View, NewMatchInput } from '../../types';
+import { AddMatchSection } from '../matches/AddMatchSection';
+import { formatMatchDate, formatMatchTime } from '../../utils/matchParser';
 
 interface MatchesViewProps {
   matches: Match[];
   players: Player[];
   addMatch: (opponent: string, date: string, isHome: boolean, gatheringTime: string) => Promise<void>;
+  addMatches: (matches: NewMatchInput[]) => Promise<void>;
   deleteMatch: (id: string) => Promise<void>;
   setSelectedMatchId: (id: string | null) => void;
   setView: (view: View) => void;
@@ -18,6 +21,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
   matches,
   players,
   addMatch,
+  addMatches,
   deleteMatch,
   setSelectedMatchId,
   setView,
@@ -25,10 +29,6 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
   matchTab,
   setMatchTab
 }) => {
-  const [opponent, setOpponent] = useState('');
-  const [date, setDate] = useState('');
-  const [isHome, setIsHome] = useState(true);
-  const [gatheringTime, setGatheringTime] = useState('');
   const [isAddingMatch, setIsAddingMatch] = useState(false);
 
   const filteredMatches = matches
@@ -53,102 +53,45 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
       </div>
 
       {!isAddingMatch ? (
-        <button 
-          onClick={() => setIsAddingMatch(true)}
-          className="w-full bg-white p-8 rounded-2xl shadow-sm border-2 border-dashed border-slate-200 flex flex-col items-center justify-center space-y-3 hover:border-markiezaten-blue/50 hover:bg-slate-50/50 transition-all group"
-        >
-          <div className="w-12 h-12 bg-markiezaten-light rounded-full flex items-center justify-center text-markiezaten-blue group-hover:scale-110 transition-transform">
-            <Plus size={24} />
-          </div>
-          <div className="text-center">
-            <p className="font-black text-slate-800">Nieuwe Wedstrijd Toevoegen</p>
-            <p className="text-xs text-slate-500">Plan een nieuwe wedstrijd of voeg een resultaat toe</p>
-          </div>
-        </button>
-      ) : (
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex justify-between items-start mb-3">
-            <div>
-              <h3 className="font-bold text-slate-800 text-sm">Wedstrijd Toevoegen</h3>
-              <p className="text-[10px] text-slate-500">Vul de details van de wedstrijd in.</p>
-            </div>
-            <button 
-              onClick={() => setIsAddingMatch(false)}
-              className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
-            >
-              <XCircle size={18} />
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tegenstander</label>
-              <input 
-                type="text" 
-                value={opponent}
-                onChange={(e) => setOpponent(e.target.value)}
-                placeholder="Naam tegenstander..."
-                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-markiezaten-blue/20 focus:border-markiezaten-blue"
-              />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button 
+            onClick={() => setIsAddingMatch(true)}
+            className="bg-white p-6 rounded-3xl shadow-sm border-2 border-dashed border-slate-200 flex items-center space-x-4 hover:border-markiezaten-blue/50 hover:bg-slate-50/50 transition-all group text-left"
+          >
+            <div className="w-12 h-12 bg-markiezaten-light rounded-2xl flex items-center justify-center text-markiezaten-blue group-hover:scale-110 transition-transform shrink-0">
+              <Plus size={24} />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Datum & Tijd</label>
-              <input 
-                type="datetime-local" 
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-markiezaten-blue/20 focus:border-markiezaten-blue"
-              />
+              <p className="font-black text-slate-900 text-sm">Wedstrijd Toevoegen</p>
+              <p className="text-xs text-slate-500">Plan 1 enkele wedstrijd in voor {currentSeason}</p>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setIsAddingMatch(true)}
+            className="bg-gradient-to-r from-markiezaten-light/60 to-blue-50/60 p-6 rounded-3xl shadow-sm border border-markiezaten-blue/20 flex items-center space-x-4 hover:border-markiezaten-blue hover:shadow-md transition-all group text-left"
+          >
+            <div className="w-12 h-12 bg-markiezaten-blue text-white rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shrink-0 shadow-md">
+              <Layers size={22} />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Thuis / Uit</label>
-              <div className="flex bg-slate-100 p-0.5 rounded-lg">
-                <button 
-                  onClick={() => setIsHome(true)}
-                  className={`flex-1 py-1 rounded-md text-[10px] font-bold transition-all ${isHome ? 'bg-white text-markiezaten-blue shadow-sm' : 'text-slate-500'}`}
-                >
-                  Thuis
-                </button>
-                <button 
-                  onClick={() => setIsHome(false)}
-                  className={`flex-1 py-1 rounded-md text-[10px] font-bold transition-all ${!isHome ? 'bg-white text-markiezaten-blue shadow-sm' : 'text-slate-500'}`}
-                >
-                  Uit
-                </button>
+              <div className="flex items-center space-x-2">
+                <p className="font-black text-slate-900 text-sm">Meerdere Wedstrijden / Schema</p>
+                <span className="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center space-x-1">
+                  <Sparkles size={10} />
+                  <span>Slim</span>
+                </span>
               </div>
+              <p className="text-xs text-slate-600">Voeg een hele speelronde toe of plak een schema</p>
             </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Verzameltijd</label>
-              <input 
-                type="time" 
-                value={gatheringTime}
-                onChange={(e) => setGatheringTime(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-markiezaten-blue/20 focus:border-markiezaten-blue"
-              />
-            </div>
-          </div>
-          <div className="flex space-x-2">
-            <button 
-              onClick={() => { 
-                addMatch(opponent, date, isHome, gatheringTime); 
-                setOpponent(''); 
-                setDate(''); 
-                setGatheringTime(''); 
-                setIsAddingMatch(false);
-              }}
-              className="flex-1 bg-markiezaten-blue text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center space-x-2 hover:bg-markiezaten-dark transition-colors"
-            >
-              <Plus size={18} />
-              <span>Opslaan</span>
-            </button>
-            <button 
-              onClick={() => setIsAddingMatch(false)}
-              className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-bold hover:bg-slate-200 transition-colors"
-            >
-              Annuleren
-            </button>
-          </div>
+          </button>
         </div>
+      ) : (
+        <AddMatchSection 
+          onAddMatches={addMatches}
+          onClose={() => setIsAddingMatch(false)}
+          currentSeason={currentSeason}
+        />
       )}
 
       <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl w-fit">
@@ -221,7 +164,7 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
                     </div>
                   </div>
                   <p className="text-sm text-slate-500">
-                    {new Date(match.date).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })} om {new Date(match.date).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}
+                    {formatMatchDate(match.date)} om {formatMatchTime(match.date)}
                   </p>
                   {match.gatheringTime && (
                     <p className="text-[10px] font-bold text-emerald-600 mt-0.5">

@@ -17,6 +17,7 @@ import { Player, Match, Formation } from '../../types';
 import { FORMATIONS } from '../../constants';
 import { DraggablePlayer, PositionSelector } from '../common/LineupComponents';
 import { TeamLogo } from '../common/TeamLogo';
+import { formatMatchDate, formatMatchTime } from '../../utils/matchParser';
 
 interface MatchDetailViewProps {
   match: Match;
@@ -182,7 +183,7 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
         <div className="grid grid-cols-2 gap-y-8 gap-x-12 w-full border-t border-white/10 pt-8">
           <div className="space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Datum</p>
-            <p className="text-xl font-black">{new Date(selectedMatch.date).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p className="text-xl font-black">{formatMatchDate(selectedMatch.date)}</p>
           </div>
           <div className="space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Locatie</p>
@@ -190,7 +191,7 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
           </div>
           <div className="space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aanvang</p>
-            <p className="text-xl font-black">{new Date(selectedMatch.date).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</p>
+            <p className="text-xl font-black">{formatMatchTime(selectedMatch.date)}</p>
           </div>
           <div className="space-y-1">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Verzamelen</p>
@@ -215,7 +216,7 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
               {selectedMatch.isHome ? 'Markiezaten' : selectedMatch.opponent} vs {selectedMatch.isHome ? selectedMatch.opponent : 'Markiezaten'}
             </h2>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              {new Date(selectedMatch.date).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })} • {selectedMatch.gatheringTime}
+              {formatMatchDate(selectedMatch.date)} • Aanvang: {formatMatchTime(selectedMatch.date)} {selectedMatch.gatheringTime ? `• Verzamelen: ${selectedMatch.gatheringTime}` : ''}
             </p>
           </div>
         </div>

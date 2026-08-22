@@ -70,6 +70,22 @@
         }
       },
       "required": ["date", "opponent", "formation", "season"]
+    },
+    "Season": {
+      "title": "Season",
+      "description": "A football season name",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The season name e.g. 28/29"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp when created"
+        }
+      },
+      "required": ["name"]
     }
   },
   "firestore": {
@@ -80,6 +96,10 @@
     "/matches/{matchId}": {
       "schema": "Match",
       "description": "Collection of matches"
+    },
+    "/seasons/{seasonId}": {
+      "schema": "Season",
+      "description": "Collection of custom seasons"
     }
   }
 }

@@ -9,7 +9,8 @@ import {
   LogOut, 
   Menu, 
   X,
-  RefreshCw
+  RefreshCw,
+  Plus
 } from 'lucide-react';
 import { 
   signInWithPopup, 
@@ -29,12 +30,14 @@ import {
   orderBy,
   disableNetwork,
   enableNetwork,
-  getDocFromServer
+  getDocFromServer,
+  writeBatch
 } from 'firebase/firestore';
 
 import { db, auth } from './firebase';
-import { Player, Match, View, OperationType } from './types';
+import { Player, Match, View, OperationType, NewMatchInput } from './types';
 import { handleFirestoreError } from './utils/firebaseUtils';
+import { getDefaultSeason } from './utils/seasonUtils';
 
 // Components
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -45,14 +48,32 @@ import { PlayersView } from './components/views/PlayersView';
 import { MatchesView } from './components/views/MatchesView';
 import { MatchDetailView } from './components/views/MatchDetailView';
 import { ReportsView } from './components/views/ReportsView';
+import { AddSeasonModal } from './components/common/AddSeasonModal';
 
 function AppContent() {
   const [view, setView] = useState<View>('dashboard');
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [matchTab, setMatchTab] = useState<'future' | 'past'>('future');
   const [allMatches, setAllMatches] = useState<Match[]>([]);
-  const [currentSeason, setCurrentSeason] = useState('25/26');
-  const SEASONS = ['24/25', '25/26', '26/27', '27/28'];
+  
+  const defaultSeason = useMemo(() => getDefaultSeason(), []);
+  const [currentSeason, setCurrentSeason] = useState(defaultSeason);
+  const [customSeasons, setCustomSeasons] = useState<string[]>([]);
+  const [isAddSeasonModalOpen, setIsAddSeasonModalOpen] = useState(false);
+
+  const BASE_SEASONS = useMemo(() => ['24/25', '25/26', '26/27', '27/28'], []);
+
+  const seasons = useMemo(() => {
+    const listSet = new Set<string>([...BASE_SEASONS, defaultSeason, ...customSeasons]);
+    allPlayers.forEach(p => { if (p.season) listSet.add(p.season); });
+    allMatches.forEach(m => { if (m.season) listSet.add(m.season); });
+
+    return Array.from(listSet).sort((a, b) => {
+      const yearA = parseInt(a.split('/')[0], 10) || 0;
+      const yearB = parseInt(b.split('/')[0], 10) || 0;
+      return yearA - yearB;
+    });
+  }, [BASE_SEASONS, defaultSeason, customSeasons, allPlayers, allMatches]);
   
   const players = useMemo(() => 
     allPlayers.filter(p => p.season === currentSeason || (!p.season && currentSeason === '25/26')), 
@@ -190,12 +211,41 @@ function AppContent() {
       checkLoaded();
     });
 
+    const qSeasons = query(collection(db, 'seasons'));
+    const unsubscribeSeasons = onSnapshot(qSeasons, (snapshot) => {
+      const fetchedSeasons = snapshot.docs
+        .map(doc => doc.data().name as string)
+        .filter(Boolean);
+      setCustomSeasons(fetchedSeasons);
+    }, (error) => {
+      console.error("Seasons load error:", error);
+    });
+
     return () => {
       unsubscribePlayers();
       unsubscribeMatches();
+      unsubscribeSeasons();
       clearTimeout(timeoutId);
     };
   }, [user, isAuthorized, retryCount]);
+
+  const handleAddSeason = async (seasonName: string) => {
+    const trimmed = seasonName.trim();
+    if (!trimmed) return;
+
+    try {
+      if (!customSeasons.includes(trimmed) && !BASE_SEASONS.includes(trimmed)) {
+        await addDoc(collection(db, 'seasons'), {
+          name: trimmed,
+          createdAt: new Date().toISOString()
+        });
+      }
+      setCurrentSeason(trimmed);
+      setIsAddSeasonModalOpen(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'seasons');
+    }
+  };
 
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
@@ -269,22 +319,32 @@ function AppContent() {
     }
   };
 
-  const addMatch = async (opponent: string, date: string, isHome: boolean, gatheringTime: string) => {
-    if (!opponent.trim() || !date) return;
+  const addMatches = async (matchesToAdd: NewMatchInput[]) => {
+    if (!matchesToAdd || matchesToAdd.length === 0) return;
     try {
-      await addDoc(collection(db, 'matches'), {
-        opponent,
-        date,
-        isHome,
-        gatheringTime,
-        attendance: {},
-        formation: '4-4-2',
-        lineup: {},
-        season: currentSeason
-      });
+      const batch = writeBatch(db);
+      for (const item of matchesToAdd) {
+        if (!item.opponent?.trim() || !item.date) continue;
+        const newMatchRef = doc(collection(db, 'matches'));
+        batch.set(newMatchRef, {
+          opponent: item.opponent.trim(),
+          date: item.date,
+          isHome: item.isHome,
+          gatheringTime: item.gatheringTime || '',
+          attendance: {},
+          formation: item.formation || '4-4-2',
+          lineup: {},
+          season: currentSeason
+        });
+      }
+      await batch.commit();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'matches');
     }
+  };
+
+  const addMatch = async (opponent: string, date: string, isHome: boolean, gatheringTime: string) => {
+    await addMatches([{ opponent, date, isHome, gatheringTime }]);
   };
 
   const deleteMatch = async (id: string) => {
@@ -371,14 +431,31 @@ function AppContent() {
         </nav>
 
         <div className="mt-auto pt-6 border-t border-white/10 space-y-4">
-          <div className="px-4">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Huidig Seizoen</p>
+          <div className="px-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Huidig Seizoen</p>
+              <button 
+                onClick={() => setIsAddSeasonModalOpen(true)}
+                className="text-[10px] font-bold text-markiezaten-blue hover:underline flex items-center space-x-1"
+                title="Nieuw seizoen aanmaken"
+              >
+                <Plus size={12} />
+                <span>Nieuw</span>
+              </button>
+            </div>
             <select 
               value={currentSeason} 
-              onChange={(e) => setCurrentSeason(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-markiezaten-blue"
+              onChange={(e) => {
+                if (e.target.value === '__add_new__') {
+                  setIsAddSeasonModalOpen(true);
+                } else {
+                  setCurrentSeason(e.target.value);
+                }
+              }}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-markiezaten-blue cursor-pointer"
             >
-              {SEASONS.map(s => <option key={s} value={s} className="bg-markiezaten-dark">Seizoen {s}</option>)}
+              {seasons.map(s => <option key={s} value={s} className="bg-markiezaten-dark">Seizoen {s}</option>)}
+              <option value="__add_new__" className="bg-markiezaten-dark font-black text-markiezaten-blue">+ Nieuw seizoen...</option>
             </select>
           </div>
           
@@ -447,13 +524,22 @@ function AppContent() {
             </div>
 
             <div className="mt-auto space-y-4">
-              <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Seizoen Wisselen</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {SEASONS.map(s => (
+              <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Seizoen Wisselen</p>
+                  <button 
+                    onClick={() => { setIsMobileMenuOpen(false); setIsAddSeasonModalOpen(true); }}
+                    className="text-[11px] font-bold text-markiezaten-blue flex items-center space-x-1"
+                  >
+                    <Plus size={14} />
+                    <span>Nieuw</span>
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                  {seasons.map(s => (
                     <button 
                       key={s} 
-                      onClick={() => setCurrentSeason(s)}
+                      onClick={() => { setCurrentSeason(s); setIsMobileMenuOpen(false); }}
                       className={`py-2 rounded-xl text-xs font-black ${currentSeason === s ? 'bg-white text-markiezaten-dark' : 'bg-white/5 text-slate-400'}`}
                     >
                       {s}
@@ -503,6 +589,7 @@ function AppContent() {
               matches={matches}
               players={players}
               addMatch={addMatch}
+              addMatches={addMatches}
               deleteMatch={deleteMatch}
               setSelectedMatchId={setSelectedMatchId}
               setView={setView}
@@ -540,6 +627,13 @@ function AppContent() {
         <MobileNavItem active={view === 'matches' || view === 'match-detail'} onClick={() => setView('matches')} icon={<Calendar size={24} />} label="Wedstrijden" />
         <MobileNavItem active={view === 'reports'} onClick={() => setView('reports')} icon={<Trophy size={24} />} label="Stats" />
       </nav>
+
+      <AddSeasonModal 
+        isOpen={isAddSeasonModalOpen}
+        onClose={() => setIsAddSeasonModalOpen(false)}
+        onAddSeason={handleAddSeason}
+        existingSeasons={seasons}
+      />
     </div>
   );
 }
