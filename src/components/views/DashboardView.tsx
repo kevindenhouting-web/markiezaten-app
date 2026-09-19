@@ -2,7 +2,12 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { RefreshCw, Users, Calendar, BarChart3, Trophy, ChevronRight } from 'lucide-react';
 import { Player, Match, View } from '../../types';
-import { formatMatchTime } from '../../utils/matchParser';
+import { 
+  formatMatchTime, 
+  calculateDefaultGatheringTime,
+  isMatchCompleted,
+  isMatchInProgress
+} from '../../utils/matchParser';
 
 interface DashboardViewProps {
   players: Player[];
@@ -99,7 +104,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <p className="text-[10px] md:text-sm text-slate-500 font-bold uppercase tracking-wider">Opkomst</p>
             <p className="text-xl md:text-2xl font-black text-slate-900">
               {(() => {
-                const pastMatches = matches.filter(m => new Date(m.date) < new Date());
+                const pastMatches = matches.filter(m => isMatchCompleted(m.date));
                 return pastMatches.length > 0 
                   ? Math.round((pastMatches.reduce((acc, m) => acc + Object.values(m.attendance).filter(v => v === 'present' || v === true).length, 0) / (pastMatches.length * (players.length || 1))) * 100)
                   : 0;
@@ -133,7 +138,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="divide-y divide-slate-100">
           {(() => {
             const futureMatches = matches
-              .filter(m => new Date(m.date) >= new Date())
+              .filter(m => !isMatchCompleted(m.date))
               .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             
             if (futureMatches.length === 0) {
@@ -150,16 +155,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div>
                     <div className="flex items-center space-x-2">
                       <p className="font-bold text-slate-900">vs {match.opponent}</p>
-                      <span className={`text-[8px] font-black px-1 py-0.5 rounded uppercase ${match.isHome ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
+                      {isMatchInProgress(match.date) && (
+                        <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500 text-white animate-pulse uppercase tracking-wider">
+                          Nu Bezig
+                        </span>
+                      )}
+                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${match.isHome ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
                         {match.isHome ? 'Thuis' : 'Uit'}
                       </span>
-                      <span className={`text-[8px] font-black px-1 py-0.5 rounded uppercase ${Object.values(match.attendance).filter(v => v === 'present' || v === true).length >= 11 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${Object.values(match.attendance).filter(v => v === 'present' || v === true).length >= 11 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                         {Object.values(match.attendance).filter(v => v === 'present' || v === true).length} Spelers
                       </span>
                     </div>
                     <p className="text-sm text-slate-500">
                       {formatMatchTime(match.date)}
-                      {match.gatheringTime && ` (Verzamelen: ${match.gatheringTime})`}
+                      {(() => {
+                        const gTime = match.gatheringTime || calculateDefaultGatheringTime(match.date, match.isHome);
+                        return gTime ? ` (Verzamelen: ${gTime})` : '';
+                      })()}
                     </p>
                   </div>
                 </div>
@@ -183,7 +196,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="divide-y divide-slate-100">
           {(() => {
             const pastMatches = matches
-              .filter(m => new Date(m.date) < new Date() && m.score)
+              .filter(m => (isMatchCompleted(m.date) || m.score) && m.score)
               .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             
             if (pastMatches.length === 0) {

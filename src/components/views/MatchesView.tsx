@@ -1,8 +1,15 @@
 import React, { useState } from 'react';
-import { Plus, Calendar, Trash2, Layers, Sparkles } from 'lucide-react';
+import { Plus, Calendar, Trash2, Layers, Sparkles, Edit3 } from 'lucide-react';
 import { Player, Match, View, NewMatchInput } from '../../types';
 import { AddMatchSection } from '../matches/AddMatchSection';
-import { formatMatchDate, formatMatchTime } from '../../utils/matchParser';
+import { EditMatchModal } from '../matches/EditMatchModal';
+import { 
+  formatMatchDate, 
+  formatMatchTime, 
+  calculateDefaultGatheringTime,
+  isMatchCompleted,
+  isMatchInProgress
+} from '../../utils/matchParser';
 
 interface MatchesViewProps {
   matches: Match[];
@@ -15,6 +22,7 @@ interface MatchesViewProps {
   currentSeason: string;
   matchTab: 'future' | 'past';
   setMatchTab: (tab: 'future' | 'past') => void;
+  onUpdateMatch?: (match: Match) => Promise<void>;
 }
 
 export const MatchesView: React.FC<MatchesViewProps> = ({
@@ -27,13 +35,15 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
   setView,
   currentSeason,
   matchTab,
-  setMatchTab
+  setMatchTab,
+  onUpdateMatch
 }) => {
   const [isAddingMatch, setIsAddingMatch] = useState(false);
+  const [editingMatch, setEditingMatch] = useState<Match | null>(null);
 
   const filteredMatches = matches
     .filter(m => {
-      const isPast = new Date(m.date) < new Date();
+      const isPast = isMatchCompleted(m.date);
       return matchTab === 'future' ? !isPast : isPast;
     })
     .sort((a, b) => {
@@ -155,6 +165,11 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
                       </span>
                     )}
                     <div className="flex items-center gap-2">
+                      {isMatchInProgress(match.date) && (
+                        <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500 text-white animate-pulse uppercase tracking-wider">
+                          Speeldag • Nu Bezig
+                        </span>
+                      )}
                       <span className={`text-[10px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter whitespace-nowrap ${match.isHome ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>
                         {match.isHome ? 'Thuis' : 'Uit'}
                       </span>
@@ -166,19 +181,37 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
                   <p className="text-sm text-slate-500">
                     {formatMatchDate(match.date)} om {formatMatchTime(match.date)}
                   </p>
-                  {match.gatheringTime && (
-                    <p className="text-[10px] font-bold text-emerald-600 mt-0.5">
-                      Verzamelen: {match.gatheringTime}
-                    </p>
-                  )}
+                  {(() => {
+                    const gTime = match.gatheringTime || calculateDefaultGatheringTime(match.date, match.isHome);
+                    return gTime ? (
+                      <p className="text-[10px] font-bold text-emerald-600 mt-0.5">
+                        Verzamelen: {gTime}
+                      </p>
+                    ) : null;
+                  })()}
                 </div>
               </div>
-              <button 
-                onClick={() => deleteMatch(match.id)}
-                className="p-2 text-slate-200 hover:text-red-500 transition-colors"
-              >
-                <Trash2 size={18} />
-              </button>
+              <div className="flex items-center space-x-1">
+                {matchTab === 'future' && !isMatchCompleted(match.date) && onUpdateMatch && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingMatch(match);
+                    }}
+                    className="p-2 text-slate-400 hover:text-markiezaten-blue hover:bg-slate-100 rounded-lg transition-colors"
+                    title="Wedstrijddetails bewerken (spelfouten, tijden, locatie)"
+                  >
+                    <Edit3 size={18} />
+                  </button>
+                )}
+                <button 
+                  onClick={() => deleteMatch(match.id)}
+                  className="p-2 text-slate-200 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Wedstrijd verwijderen"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </div>
             <div className="flex items-center justify-between pt-4 border-t border-slate-50">
               <div className="flex -space-x-2">
@@ -205,6 +238,18 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
           })
         )}
       </div>
+
+      {/* Edit Match Modal */}
+      <EditMatchModal
+        isOpen={Boolean(editingMatch)}
+        onClose={() => setEditingMatch(null)}
+        match={editingMatch}
+        onSave={async (updatedMatch) => {
+          if (onUpdateMatch) {
+            await onUpdateMatch(updatedMatch);
+          }
+        }}
+      />
     </div>
   );
 };

@@ -6,6 +6,7 @@ export interface Player {
   id: string;
   name: string;
   season: string;
+  prefersSecondHalf?: boolean; // Uitzondering: speelt liever alleen / in de tweede helft (zoals Merijn, Jeffrey, Leon)
 }
 
 export interface Match {

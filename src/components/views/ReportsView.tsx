@@ -1,8 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { motion } from 'motion/react';
-import { toPng } from 'html-to-image';
-import { BarChart3, Share2, CheckCircle2 } from 'lucide-react';
+import { toBlob } from 'html-to-image';
+import { BarChart3, Share2, CheckCircle2, Armchair, Clock, AlertTriangle, Scale, Info } from 'lucide-react';
 import { Player, Match } from '../../types';
+import { shareFileOrText, downloadBlob } from '../../utils/shareUtils';
+import { isMatchCompleted } from '../../utils/matchParser';
+import { isSecondHalfPreferred } from '../../utils/fairPlayUtils';
 
 interface ReportsViewProps {
   players: Player[];
@@ -15,7 +18,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   matches,
   currentSeason
 }) => {
-  const pastMatches = matches.filter(m => new Date(m.date) < new Date());
+  const pastMatches = matches.filter(m => isMatchCompleted(m.date));
   const hallOfFameRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
   
@@ -33,6 +36,60 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   const scorerStats = [...stats].sort((a, b) => b.goals - a.goals).filter(s => s.goals > 0);
 
+  // Bench and Fair Play statistics over matches that have lineups
+  const matchesWithLineup = pastMatches
+    .filter(m => Object.keys(m.lineup || {}).length >= 7)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const benchStats = players.map(player => {
+    const prefers2nd = isSecondHalfPreferred(player);
+    let starts = 0;
+    let bench = 0;
+    let attended = 0;
+
+    matchesWithLineup.forEach(m => {
+      const isPresent = m.attendance?.[player.id] === 'present' || m.attendance?.[player.id] === true;
+      if (isPresent) {
+        attended++;
+        const inLineup = Object.values(m.lineup || {}).includes(player.id);
+        if (inLineup) starts++;
+        else bench++;
+      }
+    });
+
+    // Recent streak of consecutive bench starts in attended matches
+    let currentBenchStreak = 0;
+    for (const m of matchesWithLineup) {
+      const isPresent = m.attendance?.[player.id] === 'present' || m.attendance?.[player.id] === true;
+      if (!isPresent) continue;
+      const inLineup = Object.values(m.lineup || {}).includes(player.id);
+      if (!inLineup) {
+        currentBenchStreak++;
+      } else {
+        break;
+      }
+    }
+
+    const benchPercentage = attended > 0 ? Math.round((bench / attended) * 100) : 0;
+
+    return {
+      ...player,
+      prefers2nd,
+      starts,
+      bench,
+      attended,
+      benchPercentage,
+      currentBenchStreak
+    };
+  }).filter(s => s.attended > 0)
+    .sort((a, b) => {
+      // Show players with high bench numbers or active streaks first
+      if (!a.prefers2nd && b.prefers2nd) return -1;
+      if (a.prefers2nd && !b.prefers2nd) return 1;
+      if (b.currentBenchStreak !== a.currentBenchStreak) return b.currentBenchStreak - a.currentBenchStreak;
+      return b.bench - a.bench;
+    });
+
   const maxPercentage = stats.length > 0 ? stats[0].percentage : 0;
   const topPerformers = stats.filter(s => s.percentage === maxPercentage && maxPercentage > 0);
 
@@ -44,18 +101,29 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       // Wait a bit for any animations to settle
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const dataUrl = await toPng(hallOfFameRef.current, {
+      const blob = await toBlob(hallOfFameRef.current, {
         cacheBust: true,
+        pixelRatio: 2,
         backgroundColor: '#001F2D', // markiezaten-dark
         style: {
           borderRadius: '0', // Remove rounding for full image feel
         }
       });
       
-      const link = document.createElement('a');
-      link.download = `de-top-markiezen-seizoen-${currentSeason}.png`;
-      link.href = dataUrl;
-      link.click();
+      if (blob) {
+        const filename = `de-top-markiezen-seizoen-${currentSeason}.png`;
+        const file = new File([blob], filename, { type: 'image/png' });
+        const res = await shareFileOrText({
+          title: `Top Markiezen - Seizoen ${currentSeason}`,
+          text: `Bekijk de Hall of Fame van VV De Markiezaten voor seizoen ${currentSeason}!`,
+          file
+        });
+
+        // If Web Share was unsupported or user cancelled/finished, offer download if not shared via native share
+        if (res === 'unsupported') {
+          downloadBlob(blob, filename);
+        }
+      }
     } catch (err) {
       console.error('Export failed:', err);
     } finally {
@@ -230,6 +298,104 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Wisselbank & Eerlijkheid Section */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-4 bg-slate-50/50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center space-x-2">
+            <Scale size={18} className="text-markiezaten-blue" />
+            <h3 className="font-bold text-slate-800">Wisselbank & Eerlijke Rotatie</h3>
+          </div>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2.5 py-1 rounded-md">
+            {matchesWithLineup.length} Wedstrijden met opstelling
+          </span>
+        </div>
+
+        <div className="p-4 bg-amber-50/50 border-b border-amber-100/60 flex items-start space-x-2.5 text-xs text-amber-900 leading-relaxed">
+          <Info size={16} className="text-amber-700 flex-shrink-0 mt-0.5" />
+          <div>
+            Houdt bij wie er bij de start van gespeelde wedstrijden op de bank plaatsnam. Spelers met <strong>Voorkeur 2e helft</strong> (zoals Merijn, Jeffrey en Leon) spelen graag later mee en tellen als vrijwillige wissels. Voor overige spelers helpt dit overzicht voorkomen dat iemand meerdere keren achter elkaar op de bank begint.
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30">
+                <th className="p-4">Speler</th>
+                <th className="p-4 text-center">Aanwezig</th>
+                <th className="p-4 text-center">Basis</th>
+                <th className="p-4 text-center">Start Bank</th>
+                <th className="p-4 text-center">Bank %</th>
+                <th className="p-4">Rotatiestatus</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {benchStats.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-slate-400 text-xs italic">
+                    Nog geen afgeronde wedstrijden met geregistreerde opstellingen in dit seizoen.
+                  </td>
+                </tr>
+              ) : (
+                benchStats.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="p-4 font-bold text-slate-800">
+                      <div className="flex items-center space-x-2">
+                        <span>{item.name}</span>
+                        {item.prefers2nd && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                            Voorkeur 2e helft
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-4 text-center font-bold text-slate-600">
+                      {item.attended}
+                    </td>
+                    <td className="p-4 text-center font-bold text-emerald-600">
+                      {item.starts}
+                    </td>
+                    <td className="p-4 text-center font-bold text-amber-700">
+                      {item.bench}
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className={`text-xs font-black ${
+                        item.benchPercentage > 50 && !item.prefers2nd ? 'text-amber-700' : 'text-slate-600'
+                      }`}>
+                        {item.benchPercentage}%
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      {item.prefers2nd ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+                          <Clock size={11} />
+                          <span>Vrijwillige wissel</span>
+                        </span>
+                      ) : item.currentBenchStreak >= 2 ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-red-100 text-red-700 border border-red-200">
+                          <AlertTriangle size={11} />
+                          <span>{item.currentBenchStreak}x op rij bank</span>
+                        </span>
+                      ) : item.currentBenchStreak === 1 ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
+                          <Armchair size={11} />
+                          <span>Laatst wissel gestart</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700">
+                          <CheckCircle2 size={11} />
+                          <span>Goed geroteerd</span>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };

@@ -170,13 +170,13 @@ export const AddMatchSection: React.FC<AddMatchSectionProps> = ({
     let sample = '';
     if (type === 'competition') {
       sample = `05-09-2026 14:30 | RBC | Thuis | 13:45
-12-09-2026 15:00 | MOC '17 | Uit | 13:30
+12-09-2026 15:00 | MOC '17 | Uit | 14:30
 19-09-2026 14:30 | Halsteren | Thuis | 13:45
-26-09-2026 14:30 | Dosko | Uit | 13:15
+26-09-2026 14:30 | Dosko | Uit | 14:00
 03-10-2026 14:30 | Steenbergen | Thuis | 13:45`;
     } else {
       sample = `Za 5 sep om 14:30 tegen RBC (Thuis) - verzamelen 13:45
-Za 12 sep 15:00 vs MOC '17 uit om 13:30 aanwezig
+Za 12 sep 15:00 vs MOC '17 uit om 14:30 aanwezig
 Za 19 september 14:30 Halsteren thuis
 Za 26 sep 14:30 tegen Dosko (uit)`;
     }
@@ -418,7 +418,7 @@ Za 26 sep 14:30 tegen Dosko (uit)`;
                   className="text-[10px] font-bold text-markiezaten-blue hover:underline"
                   title="Herbereken automatisch"
                 >
-                  Auto ({singleIsHome ? '-45m' : '-60m'})
+                  Auto ({singleIsHome ? '-45m' : '-30m'})
                 </button>
               </div>
               <input 
@@ -747,7 +747,7 @@ Za 26 sep 14:30 tegen Dosko (uit)`;
               onChange={(e) => handlePasteChange(e.target.value)}
               placeholder="Voorbeeld:
 12-09-2026 14:30 | RBC | Thuis | 13:45
-19-09-2026 15:00 | MOC '17 | Uit | 13:30
+19-09-2026 15:00 | MOC '17 | Uit | 14:30
 Za 26 sep 14:30 vs Halsteren Thuis"
               className="w-full p-4 rounded-2xl border border-slate-200 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-markiezaten-blue/20 focus:border-markiezaten-blue bg-slate-50/50"
             />

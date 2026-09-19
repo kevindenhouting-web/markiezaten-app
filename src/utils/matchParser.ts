@@ -3,7 +3,7 @@ import { NewMatchInput } from '../types';
 /**
  * Calculates a default gathering time based on match kickoff time and home/away status.
  * Home: default 45 min before kickoff.
- * Away: default 60 min before kickoff.
+ * Away: default 30 min before kickoff.
  */
 export function calculateDefaultGatheringTime(matchTimeOrDateTime: string, isHome: boolean): string {
   if (!matchTimeOrDateTime) return '';
@@ -28,7 +28,7 @@ export function calculateDefaultGatheringTime(matchTimeOrDateTime: string, isHom
     }
   }
 
-  const offsetMinutes = isHome ? 45 : 60;
+  const offsetMinutes = isHome ? 45 : 30;
   let totalMinutes = hours * 60 + minutes - offsetMinutes;
   if (totalMinutes < 0) totalMinutes += 24 * 60;
 
@@ -121,6 +121,71 @@ export function formatMatchTime(dateStr: string): string {
     }
   }
   return '14:30';
+}
+
+/**
+ * Safe parser for match date and time.
+ * Handles strings like "2026-09-12T14:30", "2026-09-12 14:30", "2026-09-12", or standard ISO.
+ */
+export function parseMatchDateTime(dateStr: string): Date | null {
+  if (!dateStr) return null;
+  
+  if (dateStr.includes('T') || dateStr.includes(' ')) {
+    const separator = dateStr.includes('T') ? 'T' : ' ';
+    const [dPart, tPart] = dateStr.split(separator);
+    if (dPart) {
+      const [y, m, d] = dPart.split('-').map(Number);
+      let hours = 14;
+      let minutes = 30;
+      if (tPart) {
+        const [h, min] = tPart.split(':').map(Number);
+        if (!isNaN(h)) hours = h;
+        if (!isNaN(min)) minutes = min;
+      }
+      if (y && m && d) {
+        return new Date(y, m - 1, d, hours, minutes, 0, 0);
+      }
+    }
+  } else {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    if (y && m && d) {
+      return new Date(y, m - 1, d, 14, 30, 0, 0);
+    }
+  }
+
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * Checks whether a match has ended / is completed.
+ * Rule: Kickoff time + 120 minutes (aanvangstijd + 120 minuten).
+ * Until 120 minutes after kickoff have elapsed on matchday, the match is upcoming/active.
+ */
+export function isMatchCompleted(dateStr: string, now: Date = new Date()): boolean {
+  const matchDate = parseMatchDateTime(dateStr);
+  if (!matchDate) return false;
+  // Kickoff + 120 minutes (in ms)
+  const completedThreshold = matchDate.getTime() + 120 * 60 * 1000;
+  return now.getTime() >= completedThreshold;
+}
+
+/**
+ * Checks whether a match is upcoming (scheduled or currently active within kickoff + 120 min).
+ */
+export function isMatchUpcoming(dateStr: string, now: Date = new Date()): boolean {
+  return !isMatchCompleted(dateStr, now);
+}
+
+/**
+ * Helper to check if a match is currently live / in progress on matchday (between kickoff and kickoff + 120 min).
+ */
+export function isMatchInProgress(dateStr: string, now: Date = new Date()): boolean {
+  const matchDate = parseMatchDateTime(dateStr);
+  if (!matchDate) return false;
+  const matchTime = matchDate.getTime();
+  const completedThreshold = matchTime + 120 * 60 * 1000;
+  return now.getTime() >= matchTime && now.getTime() < completedThreshold;
 }
 
 const MONTH_NAMES: Record<string, number> = {

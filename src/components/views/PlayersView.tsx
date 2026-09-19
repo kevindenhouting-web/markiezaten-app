@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { UserPlus, Edit2, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { UserPlus, Edit2, Trash2, CheckCircle2, XCircle, Clock, Info } from 'lucide-react';
 import { Player } from '../../types';
+import { isSecondHalfPreferred } from '../../utils/fairPlayUtils';
 
 interface PlayersViewProps {
   players: Player[];
   addPlayer: (name: string) => Promise<void>;
-  updatePlayer: (id: string, name: string) => Promise<void>;
+  updatePlayer: (id: string, updatesOrName: string | Partial<Player>) => Promise<void>;
   removePlayer: (id: string) => Promise<void>;
   currentSeason: string;
 }
@@ -28,9 +29,14 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
 
   const handleSaveEdit = async () => {
     if (editingId && editName.trim()) {
-      await updatePlayer(editingId, editName);
+      await updatePlayer(editingId, { name: editName.trim() });
       setEditingId(null);
     }
+  };
+
+  const handleToggleSecondHalfPreference = async (player: Player) => {
+    const current = isSecondHalfPreferred(player);
+    await updatePlayer(player.id, { prefersSecondHalf: !current });
   };
 
   const handleAddPlayer = async () => {
@@ -49,6 +55,15 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Seizoen {currentSeason}</span>
         </div>
       </div>
+
+      {/* Info banner regarding bench preferences */}
+      <div className="bg-blue-50/70 border border-blue-100 p-4 rounded-2xl flex items-start space-x-3 text-xs text-blue-900 leading-relaxed">
+        <Info size={18} className="text-markiezaten-blue flex-shrink-0 mt-0.5" />
+        <div>
+          <span className="font-bold">Eerlijke opstellingen & Wisselbank:</span> Spelers die vaak liever alleen in de tweede helft meedoen (zoals <strong>Merijn, Jeffrey of Leon</strong>) kunnen hier met het klokje gemarkeerd worden als <em>"Voorkeur 2e helft"</em>. Zo worden zij bij het opstellen niet als ongewenste bankzitters aangemerkt en blijft de roulatie voor de rest van het team eerlijk.
+        </div>
+      </div>
+
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
         <h3 className="font-bold text-slate-800 mb-4">Nieuwe Speler Toevoegen</h3>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -78,62 +93,88 @@ export const PlayersView: React.FC<PlayersViewProps> = ({
           {players.length === 0 ? (
             <div className="p-8 text-center text-slate-400">Nog geen spelers toegevoegd</div>
           ) : (
-            players.map(player => (
-              <div key={player.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                <div className="flex items-center space-x-4 flex-1">
-                  <div className="w-12 h-12 bg-markiezaten-light rounded-2xl flex items-center justify-center text-markiezaten-blue font-black text-lg shadow-sm flex-shrink-0">
-                    {player.name.charAt(0).toUpperCase()}
+            players.map(player => {
+              const prefers2ndHalf = isSecondHalfPreferred(player);
+              return (
+                <div key={player.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center space-x-4 flex-1">
+                    <div className="w-12 h-12 bg-markiezaten-light rounded-2xl flex items-center justify-center text-markiezaten-blue font-black text-lg shadow-sm flex-shrink-0">
+                      {player.name.charAt(0).toUpperCase()}
+                    </div>
+                    
+                    {editingId === player.id ? (
+                      <div className="flex-1 flex items-center space-x-2">
+                        <input 
+                          type="text" 
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-markiezaten-blue/20"
+                          autoFocus
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
+                        />
+                        <button 
+                          onClick={handleSaveEdit}
+                          className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                        >
+                          <CheckCircle2 size={20} />
+                        </button>
+                        <button 
+                          onClick={() => setEditingId(null)}
+                          className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"
+                        >
+                          <XCircle size={20} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-bold text-slate-900 truncate">{player.name}</p>
+                          {prefers2ndHalf && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                              <Clock size={10} />
+                              <span>Voorkeur 2e helft</span>
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Actieve Speler</p>
+                      </div>
+                    )}
                   </div>
                   
-                  {editingId === player.id ? (
-                    <div className="flex-1 flex items-center space-x-2">
-                      <input 
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-markiezaten-blue/20"
-                        autoFocus
-                        onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit()}
-                      />
+                  {!editingId && (
+                    <div className="flex items-center space-x-2 self-end sm:self-auto">
                       <button 
-                        onClick={handleSaveEdit}
-                        className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors"
+                        onClick={() => handleToggleSecondHalfPreference(player)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          prefers2ndHalf
+                            ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-500 border border-slate-200/60'
+                        }`}
+                        title={prefers2ndHalf ? 'Klik om voorkeur 2e helft uit te schakelen' : 'Klik om in te stellen als voorkeur voor 2e helft (vrijwillig wissel starten)'}
                       >
-                        <CheckCircle2 size={20} />
+                        <Clock size={14} className={prefers2ndHalf ? 'text-indigo-600' : 'text-slate-400'} />
+                        <span>{prefers2ndHalf ? 'Voorkeur 2e helft aan' : 'Voorkeur 2e helft'}</span>
+                      </button>
+
+                      <button 
+                        onClick={() => handleStartEdit(player)}
+                        className="p-2.5 text-slate-300 hover:text-markiezaten-blue hover:bg-slate-100 rounded-xl transition-all"
+                        title="Spelernaam bewerken"
+                      >
+                        <Edit2 size={16} />
                       </button>
                       <button 
-                        onClick={() => setEditingId(null)}
-                        className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors"
+                        onClick={() => removePlayer(player.id)}
+                        className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                        title="Speler verwijderen"
                       >
-                        <XCircle size={20} />
+                        <Trash2 size={16} />
                       </button>
-                    </div>
-                  ) : (
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-slate-900 truncate">{player.name}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Actieve Speler</p>
                     </div>
                   )}
                 </div>
-                
-                {!editingId && (
-                  <div className="flex items-center space-x-1">
-                    <button 
-                      onClick={() => handleStartEdit(player)}
-                      className="p-3 text-slate-300 hover:text-markiezaten-blue active:scale-90 transition-all"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                    <button 
-                      onClick={() => removePlayer(player.id)}
-                      className="p-3 text-slate-300 hover:text-red-500 active:scale-90 transition-all"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

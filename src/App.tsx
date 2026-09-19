@@ -277,14 +277,19 @@ function AppContent() {
     }
   };
 
-  const updatePlayer = async (id: string, name: string) => {
-    if (!name.trim()) return;
+  const updatePlayer = async (id: string, updatesOrName: string | Partial<Player>) => {
     try {
       const player = allPlayers.find(p => p.id === id);
-      await updateDoc(doc(db, 'players', id), { 
-        name,
-        season: player?.season || '25/26'
-      });
+      const updates = typeof updatesOrName === 'string' ? { name: updatesOrName } : updatesOrName;
+      if (updates.name !== undefined && !updates.name.trim()) return;
+
+      const payload: Record<string, any> = {
+        ...updates,
+        season: player?.season || currentSeason || '25/26'
+      };
+      if (updates.name) payload.name = updates.name.trim();
+
+      await updateDoc(doc(db, 'players', id), payload);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `players/${id}`);
     }
@@ -596,12 +601,14 @@ function AppContent() {
               currentSeason={currentSeason}
               matchTab={matchTab}
               setMatchTab={setMatchTab}
+              onUpdateMatch={updateMatch}
             />
           )}
           {view === 'match-detail' && selectedMatch && (
             <MatchDetailView 
               key="match-detail"
               match={selectedMatch}
+              matches={matches}
               players={players}
               detailTab={detailTab}
               setDetailTab={setDetailTab}
