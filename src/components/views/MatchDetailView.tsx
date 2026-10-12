@@ -481,23 +481,29 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
                   )}
                 </div>
 
-                {/* Dropdown with full squad, strictly controlled */}
-                <select 
-                  value=""
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      addGoal(e.target.value);
-                    }
-                  }}
-                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-markiezaten-blue/20"
-                >
-                  <option value="">+ Kies doelpuntenmaker uit selectie...</option>
-                  {players.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} {presentPlayers.some(pr => pr.id === p.id) ? '(Aanwezig)' : ''}
-                    </option>
-                  ))}
-                </select>
+                {/* Dropdown with only present players */}
+                {presentPlayers.length === 0 ? (
+                  <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-xs text-amber-800 text-center">
+                    Er zijn nog geen spelers als aanwezig gemarkeerd voor deze wedstrijd.
+                  </div>
+                ) : (
+                  <select 
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        addGoal(e.target.value);
+                      }
+                    }}
+                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-markiezaten-blue/20 cursor-pointer hover:border-slate-300 transition-colors"
+                  >
+                    <option value="">+ Kies doelpuntenmaker (alleen aanwezige spelers)...</option>
+                    {[...presentPlayers].sort((a, b) => a.name.localeCompare(b.name)).map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
           </div>
