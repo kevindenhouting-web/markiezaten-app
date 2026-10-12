@@ -36,6 +36,11 @@ import {
   getPriorMatches, 
   hasMatchLineup 
 } from '../../utils/fairPlayUtils';
+import { 
+  getMatchGroupedScorers, 
+  getMarkiezatenTeamGoals, 
+  isScorerForPlayer 
+} from '../../utils/scorerUtils';
 import { MatchShareModal } from '../matches/MatchShareModal';
 import { EditMatchModal } from '../matches/EditMatchModal';
 
@@ -134,6 +139,44 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
   const fairPlayOverview = useMemo(() => {
     return getMatchFairPlayOverview(selectedMatch, presentPlayers, matches);
   }, [selectedMatch, presentPlayers, matches]);
+
+  const groupedScorers = useMemo(() => {
+    return getMatchGroupedScorers(selectedMatch, players);
+  }, [selectedMatch, players]);
+
+  const markiezatenTeamGoals = useMemo(() => {
+    return getMarkiezatenTeamGoals(selectedMatch);
+  }, [selectedMatch]);
+
+  const totalRegisteredScorers = (selectedMatch.scorers || []).length;
+
+  const addGoal = async (playerIdOrName: string) => {
+    const newScorers = [...(selectedMatch.scorers || []), playerIdOrName];
+    await updateMatch({ ...selectedMatch, scorers: newScorers });
+  };
+
+  const removeOneGoal = async (playerIdOrName: string) => {
+    const targetPlayer = players.find(p => p.id === playerIdOrName || p.name.toLowerCase() === playerIdOrName.toLowerCase());
+    const newScorers = [...(selectedMatch.scorers || [])];
+    for (let i = newScorers.length - 1; i >= 0; i--) {
+      const s = newScorers[i];
+      if (s === playerIdOrName || (targetPlayer && isScorerForPlayer(s, targetPlayer))) {
+        newScorers.splice(i, 1);
+        await updateMatch({ ...selectedMatch, scorers: newScorers });
+        return;
+      }
+    }
+  };
+
+  const removeAllGoals = async (playerIdOrName: string) => {
+    const targetPlayer = players.find(p => p.id === playerIdOrName || p.name.toLowerCase() === playerIdOrName.toLowerCase());
+    const newScorers = (selectedMatch.scorers || []).filter(s => {
+      if (s === playerIdOrName) return false;
+      if (targetPlayer && isScorerForPlayer(s, targetPlayer)) return false;
+      return true;
+    });
+    await updateMatch({ ...selectedMatch, scorers: newScorers });
+  };
 
   return (
     <div className="space-y-6">
@@ -369,36 +412,92 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
               </div>
 
               <div className="space-y-3">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Doelpuntenmakers</h4>
-                <div className="space-y-2">
-                  {(selectedMatch.scorers || []).map((scorerId, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded-xl border border-slate-100">
-                      <span className="text-sm font-bold text-slate-700">{players.find(p => p.id === scorerId)?.name || 'Onbekend'}</span>
-                      <button 
-                        onClick={() => {
-                          const newScorers = [...(selectedMatch.scorers || [])];
-                          newScorers.splice(idx, 1);
-                          updateMatch({ ...selectedMatch, scorers: newScorers });
-                        }}
-                        className="text-red-400 hover:text-red-600"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  ))}
-                  <select 
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        updateMatch({ ...selectedMatch, scorers: [...(selectedMatch.scorers || []), e.target.value] });
-                        e.target.value = '';
-                      }
-                    }}
-                    className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold focus:outline-none focus:ring-2 focus:ring-markiezaten-blue/20"
-                  >
-                    <option value="">Voeg doelpuntenmaker toe...</option>
-                    {presentPlayers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Doelpuntenmakers ({totalRegisteredScorers})
+                  </h4>
+                  {markiezatenTeamGoals > 0 && (
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                      totalRegisteredScorers === markiezatenTeamGoals
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : totalRegisteredScorers < markiezatenTeamGoals
+                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                          : 'bg-blue-100 text-blue-800 border border-blue-200'
+                    }`}>
+                      {totalRegisteredScorers === markiezatenTeamGoals 
+                        ? `✅ ${totalRegisteredScorers} / ${markiezatenTeamGoals} toegekend`
+                        : `${totalRegisteredScorers} / ${markiezatenTeamGoals} geregistreerd`}
+                    </span>
+                  )}
                 </div>
+
+                {/* Grouped Scorers List */}
+                <div className="space-y-2">
+                  {groupedScorers.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic text-center py-3 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                      Nog geen doelpuntenmakers toegevoegd.
+                    </p>
+                  ) : (
+                    groupedScorers.map((s) => (
+                      <div key={s.playerId} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors">
+                        <div className="flex items-center space-x-2 min-w-0 flex-1 pr-2">
+                          <span className="text-base select-none">⚽</span>
+                          <span className="text-sm font-bold text-slate-800 truncate">{s.name}</span>
+                          {s.count > 1 ? (
+                            <span className="text-xs font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                              {s.count}x gescoord
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-slate-400 shrink-0">
+                              1 doelpunt
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-1 shrink-0">
+                          <button 
+                            onClick={() => removeOneGoal(s.playerId)}
+                            className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-100 active:scale-95 transition-all"
+                            title="1 doelpunt minder"
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <button 
+                            onClick={() => addGoal(s.playerId)}
+                            className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center hover:bg-emerald-700 active:scale-95 transition-all shadow-xs"
+                            title="Nog een doelpunt toevoegen"
+                          >
+                            <Plus size={14} />
+                          </button>
+                          <button 
+                            onClick={() => removeAllGoals(s.playerId)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-1"
+                            title="Verwijder alle doelpunten van deze speler"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Dropdown with full squad, strictly controlled */}
+                <select 
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      addGoal(e.target.value);
+                    }
+                  }}
+                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-markiezaten-blue/20"
+                >
+                  <option value="">+ Kies doelpuntenmaker uit selectie...</option>
+                  {players.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {presentPlayers.some(pr => pr.id === p.id) ? '(Aanwezig)' : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

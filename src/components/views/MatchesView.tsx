@@ -10,6 +10,7 @@ import {
   isMatchCompleted,
   isMatchInProgress
 } from '../../utils/matchParser';
+import { getMatchGroupedScorers } from '../../utils/scorerUtils';
 
 interface MatchesViewProps {
   matches: Match[];
@@ -189,6 +190,16 @@ export const MatchesView: React.FC<MatchesViewProps> = ({
                       </p>
                     ) : null;
                   })()}
+                  {match.scorers && match.scorers.length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                      <span className="text-[10px] select-none">⚽</span>
+                      {getMatchGroupedScorers(match, players).map(s => (
+                        <span key={s.playerId} className="text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-200/60">
+                          {s.name}{s.count > 1 ? ` (${s.count}x)` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center space-x-1">

@@ -6,6 +6,7 @@ import { Player, Match } from '../../types';
 import { shareFileOrText, downloadBlob } from '../../utils/shareUtils';
 import { isMatchCompleted } from '../../utils/matchParser';
 import { isSecondHalfPreferred } from '../../utils/fairPlayUtils';
+import { getPlayerTotalGoals, isMatchPlayedOrHasResult } from '../../utils/scorerUtils';
 
 interface ReportsViewProps {
   players: Player[];
@@ -18,7 +19,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   matches,
   currentSeason
 }) => {
-  const pastMatches = matches.filter(m => isMatchCompleted(m.date));
+  const pastMatches = matches.filter(m => isMatchPlayedOrHasResult(m));
   const hallOfFameRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
   
@@ -27,9 +28,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     const attendedMatches = pastMatches.filter(m => m.attendance[player.id] === 'present' || m.attendance[player.id] === true).length;
     const percentage = totalMatches > 0 ? Math.round((attendedMatches / totalMatches) * 100) : 0;
     
-    const goals = pastMatches.reduce((acc, m) => {
-      return acc + (m.scorers || []).filter(id => id === player.id).length;
-    }, 0);
+    // Accurately calculate total season goals using robust matcher
+    const goals = getPlayerTotalGoals(player, matches);
 
     return { ...player, attendedMatches, totalMatches, percentage, goals };
   }).sort((a, b) => b.percentage - a.percentage);
@@ -235,6 +235,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               <tr className="bg-slate-50/50">
                 <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">#</th>
                 <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Speler</th>
+                <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">Doelpunten</th>
                 <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Aanwezig</th>
                 <th className="px-6 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 text-right">Percentage</th>
               </tr>
@@ -244,6 +245,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <tr key={player.id} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-6 py-4 text-sm font-bold text-slate-400 border-b border-slate-50">{index + 1}</td>
                   <td className="px-6 py-4 text-sm font-black text-slate-900 border-b border-slate-50">{player.name}</td>
+                  <td className="px-6 py-4 text-sm font-bold text-center border-b border-slate-50">
+                    {player.goals > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        ⚽ {player.goals}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300 font-normal text-xs">-</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-sm font-bold text-slate-500 border-b border-slate-50">
                     {player.attendedMatches} / {player.totalMatches}
                   </td>

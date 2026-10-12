@@ -8,6 +8,7 @@ import {
   isMatchCompleted,
   isMatchInProgress
 } from '../../utils/matchParser';
+import { getPlayerTotalGoals } from '../../utils/scorerUtils';
 
 interface DashboardViewProps {
   players: Player[];
@@ -35,9 +36,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   setMatchTab
 }) => {
   const scorerStats = players.map(player => {
-    const goals = matches.reduce((acc, match) => {
-      return acc + (match.scorers?.filter(id => id === player.id).length || 0);
-    }, 0);
+    const goals = getPlayerTotalGoals(player, matches);
     return { ...player, goals };
   }).sort((a, b) => b.goals - a.goals);
 
@@ -118,8 +117,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div>
             <p className="text-[10px] md:text-sm text-slate-500 font-bold uppercase tracking-wider">Topscorer</p>
-            <p className="text-xl md:text-2xl font-black text-slate-900 truncate max-w-[120px]">
-              {topScorer ? topScorer.name : '-'}
+            <p className="text-lg md:text-xl font-black text-slate-900 truncate max-w-[140px]" title={topScorer ? `${topScorer.name} (${topScorer.goals} goals)` : undefined}>
+              {topScorer ? `${topScorer.name} (${topScorer.goals})` : '-'}
             </p>
           </div>
         </div>
