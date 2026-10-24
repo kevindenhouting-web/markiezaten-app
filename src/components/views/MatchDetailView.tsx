@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   ChevronLeft, 
@@ -10,7 +10,6 @@ import {
   Layout,
   Trash2,
   Edit3,
-  Scale,
   Armchair,
   AlertTriangle,
   Clock,
@@ -43,6 +42,7 @@ import {
 } from '../../utils/scorerUtils';
 import { MatchShareModal } from '../matches/MatchShareModal';
 import { EditMatchModal } from '../matches/EditMatchModal';
+import { MatchStopwatch, getStoredTimerState } from '../MatchStopwatch';
 
 interface MatchDetailViewProps {
   match: Match;
@@ -69,6 +69,24 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
 
   const isUpcoming = useMemo(() => isMatchUpcoming(selectedMatch.date), [selectedMatch.date]);
   const isInProgress = useMemo(() => isMatchInProgress(selectedMatch.date), [selectedMatch.date]);
+
+  const [timerRunning, setTimerRunning] = useState<boolean>(() => {
+    return getStoredTimerState(selectedMatch.id).isRunning;
+  });
+
+  useEffect(() => {
+    setTimerRunning(getStoredTimerState(selectedMatch.id).isRunning);
+
+    const handleTimerChange = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.matchId === selectedMatch.id) {
+        setTimerRunning(customEvent.detail.isRunning);
+      }
+    };
+
+    window.addEventListener('match_timer_change', handleTimerChange);
+    return () => window.removeEventListener('match_timer_change', handleTimerChange);
+  }, [selectedMatch.id]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -229,9 +247,12 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
             </button>
             <button 
               onClick={() => setDetailTab('result')}
-              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${detailTab === 'result' ? 'bg-markiezaten-blue text-white shadow-md' : 'text-slate-400 hover:bg-slate-50'}`}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${detailTab === 'result' ? 'bg-markiezaten-blue text-white shadow-md' : 'text-slate-400 hover:bg-slate-50'}`}
             >
-              Resultaat
+              <span>Resultaat</span>
+              {timerRunning && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Wedstrijdklok loopt" />
+              )}
             </button>
           </div>
 
@@ -272,9 +293,12 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
         </button>
         <button 
           onClick={() => setDetailTab('result')}
-          className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${detailTab === 'result' ? 'bg-white text-markiezaten-blue shadow-sm' : 'text-slate-500'}`}
+          className={`flex-1 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${detailTab === 'result' ? 'bg-white text-markiezaten-blue shadow-sm' : 'text-slate-500'}`}
         >
-          Resultaat
+          <span>Resultaat</span>
+          {timerRunning && (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          )}
         </button>
       </div>
 
@@ -367,6 +391,12 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
               <h3 className="font-bold text-slate-800">Wedstrijd Resultaat</h3>
             </div>
             <div className="p-6 space-y-6">
+              {/* Wedstrijd Stopwatch / Timer */}
+              <MatchStopwatch 
+                matchId={selectedMatch.id} 
+                onTimeUpdate={(_, isRunning) => setTimerRunning(isRunning)} 
+              />
+
               <div className="flex items-center justify-center space-x-6">
                 <div className="text-center">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
@@ -510,95 +540,6 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
         </div>
 
         <div className={`lg:col-span-2 space-y-6 ${detailTab !== 'lineup' ? 'hidden lg:block' : ''}`}>
-          {/* Fair Play & Rotatie Alert Banner */}
-          <div className={`p-4 rounded-3xl border transition-all ${
-            fairPlayOverview.unassignedPreviousBenchPlayers.filter(h => !h.prefersSecondHalf).length > 0
-              ? 'bg-amber-50/90 border-amber-200/90 text-amber-950 shadow-sm'
-              : fairPlayOverview.assignedPreviousBenchPlayers.length > 0
-                ? 'bg-emerald-50/80 border-emerald-200/90 text-emerald-950 shadow-sm'
-                : 'bg-slate-50 border-slate-200/70 text-slate-800'
-          }`}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start space-x-3.5 flex-1">
-                <div className={`p-2.5 rounded-2xl flex-shrink-0 mt-0.5 ${
-                  fairPlayOverview.unassignedPreviousBenchPlayers.filter(h => !h.prefersSecondHalf).length > 0
-                    ? 'bg-amber-100 text-amber-800'
-                    : fairPlayOverview.assignedPreviousBenchPlayers.length > 0
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-slate-200/70 text-slate-600'
-                }`}>
-                  <Scale size={20} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-black text-sm">Wisselbank & Eerlijke Rotatie</h4>
-                    {priorMatchWithLineup && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/80 border border-slate-200/60 text-slate-600">
-                        Vorig duel: vs {priorMatchWithLineup.opponent} ({formatMatchDate(priorMatchWithLineup.date)})
-                      </span>
-                    )}
-                  </div>
-
-                  {fairPlayOverview.unassignedPreviousBenchPlayers.filter(h => !h.prefersSecondHalf).length > 0 ? (
-                    <div className="text-xs mt-1.5 space-y-2">
-                      <p className="font-semibold text-amber-900">
-                        ⚠️ <strong>Let op:</strong> De volgende aanwezige spelers begonnen vorige wedstrijd op de bank en staan nu nog niet in de basisopstelling:
-                      </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {fairPlayOverview.unassignedPreviousBenchPlayers
-                          .filter(h => !h.prefersSecondHalf)
-                          .map(h => (
-                            <span 
-                              key={h.player.id} 
-                              className="inline-flex items-center gap-1.5 font-bold text-xs bg-amber-200/80 text-amber-950 px-2.5 py-1 rounded-xl border border-amber-300 shadow-xs"
-                            >
-                              <Armchair size={12} className="text-amber-800" />
-                              <span>{h.player.name}</span>
-                              {h.consecutiveBenchStarts >= 2 && (
-                                <span className="text-[10px] bg-red-600 text-white px-1.5 py-0.2 rounded font-black">
-                                  {h.consecutiveBenchStarts}x op rij bank
-                                </span>
-                              )}
-                            </span>
-                          ))}
-                      </div>
-                      <p className="text-[11px] text-amber-800/90 leading-tight">
-                        💡 <em>Tip: Sleep deze spelers naar het veld om te voorkomen dat iemand meerdere wedstrijden achter elkaar als wissel begint.</em>
-                      </p>
-                    </div>
-                  ) : fairPlayOverview.assignedPreviousBenchPlayers.length > 0 ? (
-                    <p className="text-xs text-emerald-800 mt-1.5 font-medium">
-                      ✅ <strong>Uitstekende rotatie!</strong> Alle spelers die het vorige duel als wissel begonnen staan vandaag in de basisopstelling.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-slate-600 mt-1">
-                      {priorMatchWithLineup 
-                        ? 'Geen spelers van de vorige wisselbank aanwezig vandaag.' 
-                        : 'Eerste wedstrijd of nog geen eerdere opstelling geregistreerd om rotatie mee te vergelijken.'}
-                    </p>
-                  )}
-
-                  {/* 2nd half preferences exceptions info */}
-                  {fairPlayOverview.unassignedPreviousBenchPlayers.filter(h => h.prefersSecondHalf).length > 0 && (
-                    <div className="mt-2.5 text-[11px] text-indigo-900 bg-indigo-50/90 border border-indigo-100/80 rounded-xl p-2.5 flex items-start gap-2">
-                      <Clock size={14} className="text-indigo-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <strong className="font-bold">Uitzondering (Voorkeur 2e helft):</strong>{' '}
-                        {fairPlayOverview.unassignedPreviousBenchPlayers
-                          .filter(h => h.prefersSecondHalf)
-                          .map(h => h.player.name)
-                          .join(', ')}{' '}
-                        {fairPlayOverview.unassignedPreviousBenchPlayers.filter(h => h.prefersSecondHalf).length === 1 ? 'speelt' : 'spelen'}{' '}
-                        bij voorkeur in de 2e helft en {fairPlayOverview.unassignedPreviousBenchPlayers.filter(h => h.prefersSecondHalf).length === 1 ? 'start' : 'starten'}{' '}
-                        daardoor vrijwillig op de bank.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="p-4 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
               <div className="flex items-center space-x-2">
@@ -612,6 +553,7 @@ export const MatchDetailView: React.FC<MatchDetailViewProps> = ({
               >
                 <option value="4-4-2">4-4-2</option>
                 <option value="4-3-3">4-3-3</option>
+                <option value="4-5-1">4-5-1</option>
               </select>
             </div>
 

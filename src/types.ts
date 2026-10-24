@@ -1,6 +1,6 @@
 import { User } from 'firebase/auth';
 
-export type Formation = '4-4-2' | '4-3-3';
+export type Formation = '4-4-2' | '4-3-3' | '4-5-1';
 
 export interface Player {
   id: string;

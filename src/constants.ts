@@ -32,5 +32,21 @@ export const FORMATIONS: Record<Formation, { name: string; positions: { key: str
       { key: 'st', label: 'SP', x: 50, y: 15 },
       { key: 'lw', label: 'LA', x: 20, y: 20 },
     ]
+  },
+  '4-5-1': {
+    name: '4-5-1',
+    positions: [
+      { key: 'gk', label: 'K', x: 50, y: 90 },
+      { key: 'rb', label: 'RA', x: 85, y: 70 },
+      { key: 'cb1', label: 'CV', x: 65, y: 75 },
+      { key: 'cb2', label: 'CV', x: 35, y: 75 },
+      { key: 'lb', label: 'LA', x: 15, y: 70 },
+      { key: 'rm', label: 'RM', x: 85, y: 46 },
+      { key: 'cm1', label: 'CM', x: 65, y: 52 },
+      { key: 'cam', label: 'CAM', x: 50, y: 36 },
+      { key: 'cm2', label: 'CM', x: 35, y: 52 },
+      { key: 'lm', label: 'LM', x: 15, y: 46 },
+      { key: 'st', label: 'SP', x: 50, y: 18 },
+    ]
   }
 };
